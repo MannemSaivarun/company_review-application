@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Rating Form</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color:dimgray;
+        }
+        h1{
+            color: rgb(246, 79, 42);
+            margin-left: 75px;
+        }
+        label{
+            color: rgb(18, 8, 6);
+        }
+        .rating-form {
+            max-width: 400px;
+            
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        li{
+            list-style-type: none;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+            display:grid;
+        }
+
+        .form-group label {
+            font-weight: bold;
+        }
+        #pros{
+            height: 100px;
+        }
+        #cons{
+            height: 100px;
+        }
+        button{
+            background-color:crimson;
+            cursor: pointer;
+            color: aliceblue;
+        }
+        .star-rating {
+            font-size: 24px;
+            color: #ccc;
+            cursor: pointer;
+            display: inline-block;
+        }
+
+        .star-rating.active {
+            color: orange;
+        }
+        .result-section {
+            
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="rating-form">
+        <h1>Add a Review</h1>
+        <form onsubmit=" savetodatabase(event);">
+            <div class="form-group">
+                <label for="company-name">Company Name:</label>
+                <input type="text" id="company-name" name="companyname" required>
+            </div>
+
+            <div class="form-group">
+                <label for="pros">Pros:</label>
+                <textarea id="pros" name="pros" required></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="cons">Cons:</label>
+                <textarea id="cons" name="cons" required></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="rating">Rating:</label>
+                <div class="stars" id="rating">
+                    <span class="star-rating" onclick="rateStar(1)" value="1">☆</span>
+                    <span class="star-rating" onclick="rateStar(2)" value="2">☆</span>
+                    <span class="star-rating" onclick="rateStar(3)" value="3">☆</span>
+                    <span class="star-rating" onclick="rateStar(4)" value="4">☆</span>
+                    <span class="star-rating" onclick="rateStar(5)" value="5">☆</span>
+                </div>
+            </div>
+
+            <button type="submit">Submit Review</button>
+        </form>
+        
+    </div>
+    <hr>
+    <div class="result-section">
+        <h2>Thank you for your rating!</h2>
+        <form onsubmit="getMatchedReviews(event)">
+            <input type="text" name="checkcompany" id="review-check" placeholder="Enter company name to check reviews">
+            <button>Submit</button>
+            <h3>Company reviews</h3>  
+        </form>
+        <ul id="list-of-reviews"></ul> 
+        
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.4.0/axios.min.js"></script>
+    <script>
+        const stars = document.querySelectorAll(".star-rating");
+        var Index;
+      
+        function rateStar(ratingIndex) {
+            Index = ratingIndex;
+            stars.forEach((star, index) => {
+                star.classList.toggle("active", index < ratingIndex);
+            });
+        }
+
+        function savetodatabase(event){
+            event.preventDefault();
+            console.log('hello savetodatabase function activated')
+            const name = event.target.companyname.value;
+            const pros = event.target.pros.value;
+            const cons = event.target.cons.value;
+            const ratingIndex = Index;
+            const obj ={
+                name,
+                pros,
+                cons,
+                ratingIndex
+            }
+            console.log(obj)
+            axios.post("http://localhost:3000/company/add-review", obj)
+            .then((response) =>{
+                // console.log(response.data.newreview);
+                document.getElementById("company-name").value = '';
+                document.getElementById('pros').value = '';
+                document.getElementById('cons').value ='';
+            })
+            .catch(err=>{
+                console.log('failed in getting response from axios.post')
+                // document.body.innerHTML = document.body.innerHTML + "Something went wrong";
+            })
+            
+        }
+        function getMatchedReviews(event){
+            event.preventDefault();
+            axios.get("http://localhost:3000/company/get-reviews")
+            .then(res=>{
+                console.log(res.data.reviewdetails)
+                for(var i=0;i<res.data.reviewdetails.length;i++){
+                    if(res.data.reviewdetails[i].Companyname === event.target.checkcompany.value){
+                        //console.log("matched", res.data.reviewdetails[i].Companyname)
+                        showReviewOnScreen(res.data.reviewdetails[i])
+                    }
+                }
+            }).catch(err=>{
+                console.log("error in getting reviews", err);
+            })
+        }
+        var NamesofCompany = {}
+        var ratings=[]
+        var avgrating; 
+        var sum=0;
+        function showReviewOnScreen(obj){
+            const parentelem = document.getElementById("list-of-reviews");
+            
+            
+            
+            const reviewcompanyname = document.createElement('h2');
+            reviewcompanyname.setAttribute('id','reviewcompanyname')
+            reviewcompanyname.textContent = "Companyname: " + obj.Companyname;
+            const reviewcompanyrating = document.createElement('h2');
+            reviewcompanyrating.setAttribute('id','reviewcompanyrating')
+            reviewcompanyrating.textContent = "Rating: " +obj.ratingIndex
+            const companypros = document.createElement('h3');
+            companypros.setAttribute('id','companypros')
+            companypros.textContent = "Pros: "+obj.pros
+            const companycons = document.createElement('h3');
+            companycons.setAttribute('id','companycons')
+            companycons.textContent = "Cons: "+obj.cons;    
+            
+            const starrating =document.createElement('h3')
+            starrating.textContent = 'rating: '+ '★'.repeat(obj.ratingIndex) ;
+            
+            const newline = '<hr>'
+            if(obj.Companyname in NamesofCompany){
+                // avgrating = (obj.ratingIndex + NamesofCompany[obj.Companyname])/2
+                // reviewcompanyrating.textContent = "Rating: " +avgrating
+                // console.log("present in array", avgrating)
+                ratings.push(obj.ratingIndex)
+                ratings.forEach(rating=>{
+                     sum=sum+rating
+                })
+                avgrating = sum / ratings.length;
+                console.log(avgrating.toFixed(1))
+                const childelem = document.createElement('li');
+                
+                childelem.appendChild(companypros);
+                childelem.appendChild(companycons);
+                childelem.appendChild(starrating);
+                childelem.innerHTML+=newline; 
+                parentelem.appendChild(childelem);
+
+            }else{
+                console.log("not present in array")
+                const childelem = document.createElement('li');
+                childelem.appendChild(reviewcompanyname);
+                childelem.appendChild(reviewcompanyrating);
+                childelem.appendChild(companypros);
+                childelem.appendChild(companycons);
+                childelem.appendChild(starrating);
+                childelem.innerHTML+=newline;
+                parentelem.appendChild(childelem);
+                NamesofCompany[obj.Companyname]=obj.ratingIndex;
+                ratings.push(obj.ratingIndex)
+                //console.log(NamesofCompany, NamesofCompany.includes(obj.Companyname))
+            }
+            console.log(parentelem)
+            document.getElementById("reviewcompanyrating").textContent = "Rating: " + Math.round(avgrating*10)/10;
+            // childelem.appendChild(reviewcompanyname);
+            // childelem.appendChild(reviewcompanyrating);
+            // childelem.appendChild(companypros);
+            // childelem.appendChild(companycons);
+            // childelem.appendChild(starrating);
+            // childelem.innerHTML+=newline;
+            // parentelem.appendChild(childelem);
+            // NamesofCompany.push(obj.Companyname)
+
+        }
+    </script>
+</body>
+</html>
